@@ -12,30 +12,35 @@ module receiver (
 
     always @(posedge clk or negedge rstn) begin
         if (!rstn) begin
-            bit_cnt <= 0;
-            receiving <= 0;
-            shift_reg <= 0;
-            data_out <= 0;
-            parity_ok_n <= 1;
-            ready <= 0;
+            bit_cnt      <= 0;
+            receiving    <= 0;
+            shift_reg    <= 0;
+            data_out     <= 0;
+            parity_ok_n  <= 1;
+            ready        <= 0;
         end else begin
-            ready <= 0; // só fica alto por um ciclo
+            ready <= 0;
 
-            if (!receiving && serial_in == 0) begin
-                receiving <= 1; // detecta start bit
-                bit_cnt <= 0;
-            end else if (receiving) begin
-                bit_cnt <= bit_cnt + 1;
-
-                if (bit_cnt < 8)
-                    shift_reg[bit_cnt] <= serial_in;
-                else if (bit_cnt == 8) begin
-                    receiving <= 0;
-                    data_out <= shift_reg[6:0];
-                    parity_ok_n <= ^{serial_in, shift_reg[6:0]}; // paridade ok → 0
-                    ready <= 1;
+            case ({receiving, serial_in})
+                2'b00: begin  // detecta start bit
+                    receiving <= 1;
+                    bit_cnt <= 0;
                 end
-            end
+                default: begin
+                    if (receiving) begin
+                        bit_cnt <= bit_cnt + 1;
+
+                        if (bit_cnt < 8)
+                            shift_reg[bit_cnt] <= serial_in;
+                        else if (bit_cnt == 8) begin
+                            receiving    <= 0;
+                            data_out     <= shift_reg[6:0];
+                            parity_ok_n  <= ~^{serial_in, shift_reg[6:0]};  // paridade par
+                            ready        <= 1;
+                        end
+                    end
+                end
+            endcase
         end
     end
 endmodule
